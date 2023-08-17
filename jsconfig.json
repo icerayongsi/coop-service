@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "#API/*": ["./API/*.js"],
+            "#db/*": ["./db/*.js"],
+            "#libs/*": ["libs/*.js"],
+            "#cache/*": ["./cache/*.js"],
+            "#configs/*": ["./configs/*.json"]
+        }
+    }
+}

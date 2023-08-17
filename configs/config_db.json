@@ -1,0 +1,7 @@
+{
+    "oracle": {
+        "user": "iscoegat",
+        "password": "iscoegat",
+        "connectString": "127.0.0.1:1521/gcoop"
+    }
+}
