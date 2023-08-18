@@ -1,0 +1,30 @@
+{
+    "express_port": 10006,
+    "//": "// NOTE : Database config",
+    "oracle": {
+        "user": "iscoegat",
+        "password": "iscoegat",
+        "connectString": "127.0.0.1:1521/gcoop"
+    },
+    "mysqlPool": {
+        "host" : "localhost",
+        "port" : 3307,
+        "user" : "root",
+        "password": "@Egat2020",
+        "database": "mobile_egat",
+        "waitForConnections": true,
+        "connectionLimit": 10,
+        "queueLimit": 0
+    },
+    "redis": {
+        "host": "localhost",
+        "port": 6379,
+        "password": "Fs#5132Xcza"
+    },
+    "//": "// NOTE : Withdraw config",
+    "w_transaction_verify_exp": 120,
+    "w_transaction_arg_data_exp": 3600,
+    "w_transaction_first_exp": 15,
+    "w_transaction_redis_count_exp": 5,
+    "w_redis_round_limit_exp": 5
+}

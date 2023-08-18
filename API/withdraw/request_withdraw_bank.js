@@ -1,7 +1,8 @@
 import express from 'express'
+import config from "#configs/config" assert { type: 'json'}
 import { oracleExecute, POST_DEPT_INSERT_SERV_ONLINE, POST_DEPT_INSERT_TEST } from '#db/connection'
-import { RequestFunction, convertNullToStringNull, convertUndefinedToEmptyString } from '#libs/Functions'
-import { TRANSACTION as TRANS_CACHE } from '#cache/redis'
+import { convertUndefinedToEmptyString } from '#libs/Functions'
+import { TRANSACTION } from '#cache/redis'
 import { check_ref_no } from './functions.js'
 
 const API = express.Router()
@@ -11,19 +12,13 @@ API.use(express.urlencoded({
     defer: true
 }))
 
-/**
- * NOTE : Protect HTTP type
- * @param { Request } req
- * @param { Response } res
- */
-
 API.post('/verify', async (req, res) => {
     try {
         const body = req.body
         const { sigma_key, itemtype, bank_id, ...filteredData } = body
-        await TRANS_CACHE.SETEX(
-            `0:TRANSACTION:${req.body.itemtype}:${req.body.bank_id}:${sigma_key}`,
-            2 * 60,
+        await TRANSACTION.SETEX(
+            `TRANSACTION:${req.body.itemtype}:${req.body.bank_id}:${sigma_key}`,
+            config.w_transaction_verify_exp,
             filteredData
         )
         console.log(`[TRANSACTION IN][CACHED] Verify successfully - ${req.body.itemtype}:${req.body.bank_id}:${sigma_key}`)
@@ -43,22 +38,22 @@ API.post('/payment', async (req, res) => {
         let { sigma_key, ...bindfiltered } = req.body
 
         // NOTE : Update cache for PL/SQL arrgument
-        await TRANS_CACHE.SETEX(
-            `0:TRANSACTION:${cache_key_name}`,
-            15,
+        await TRANSACTION.SETEX(
+            `TRANSACTION:${cache_key_name}`,
+            config.w_transaction_first_exp,
             bindfiltered,
         )
             .then(async () => {
                 console.log(`[TRANSACTION IN][PEOCESS] Start - ${cache_key_name}`)
                 console.log(`[TRANSACTION IN][CACHED] Push PL/SQL arrgument - ${cache_key_name}`)
-                const bind = JSON.parse(await TRANS_CACHE.GET(`0:TRANSACTION:${cache_key_name}`))
+                const bind = JSON.parse(await TRANSACTION.GET(`TRANSACTION:${cache_key_name}`))
 
                 for (const bindVar in bindParams) bindParams[bindVar].val = bind[bindVar]
 
                 // NOTE : เช็ค deptslip จาก column ref_no ว่ามีการทำรายการนี้ไปหรือยัง
                 const is_ref_no = await check_ref_no(bind.AS_MACHINE_ID)
                 if (!is_ref_no) {
-                    res.json({ AS_PROCESS_STATUS : false})
+                    res.json({ AS_PROCESS_STATUS: false })
                     res.end()
                     throw `[TRANSACTION IN][PROCESS] Error - Duplicate 'ref_no'`
                 }
@@ -68,18 +63,29 @@ API.post('/payment', async (req, res) => {
                     .then(async (result) => {
                         console.log(`[TRANSACTION IN][PROCESS] Successfully - ${cache_key_name}`)
                         console.log(`[TRANSACTION IN][CACHED] Remove - ${cache_key_name}`)
-                        await TRANS_CACHE.DEL(`0:TRANSACTION:${cache_key_name}`)
+                        await TRANSACTION.DEL(`TRANSACTION:${cache_key_name}`)
                         res.status(200).json(result.outBinds)
                         res.end()
                     })
-                    // ! ไม่สำเร็จ จะทำการเปลี่ยน Status key ของ cache จาก 0 เป็น 1
-                    // ? 1 จะเป็นการให้ Schedule ทำงาน 0 คือยังไม่ทำงานป้องกันโอกาศการพร้อมกัน ณ จุดนี้
+                    // ! ไม่สำเร็จ จะเข้าสู่ Process cache
+                    // ? สร้าง Cache 2 ตัว 1 ตัวนับหมดเวลา อีกตัวเก็บข้อมูล
                     .catch(async (err) => {
-                        await TRANS_CACHE.SETEX(
-                            `0:TRANSACTION:${cache_key_name}`,
-                            15,
-                            bindfiltered,
-                        ).then(async () => await TRANS_CACHE.DEL(`1:TRANSACTION:${cache_key_name}`))
+                        // ? Cache เปล่า ตั้งเวลา 5 วิ
+                        await TRANSACTION.SETEX(
+                            `EX:0:TRANSACTION:${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${bind.AS_MACHINE_ID}`,
+                            config.w_transaction_redis_count_exp,
+                            '',
+                        )
+                        // ? Cache เก็บข้อมูล ตั้งเวลา 1 ชั่วโมงเพื่อปกกันการค้างใน Cache
+                        await TRANSACTION.SETEX(
+                            `TRANSACTION:${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${bind.AS_MACHINE_ID}`,
+                            config.w_transaction_arg_data_exp,
+                            bindfiltered
+                        )
+                            // ? ลบ Cache หลัก
+                            .then(async () => {
+                                await TRANSACTION.DEL(`TRANSACTION:${cache_key_name}`)
+                            })
                         console.error(err)
                     })
                 // NOTE : End oracle statement

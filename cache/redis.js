@@ -1,10 +1,9 @@
 import { createClient } from 'redis'
-import moment from 'moment'
+import { process_cache } from './process.js'
+import config from "#configs/config" assert { type: 'json'}
 
 const Client = createClient({
-    host: 'localhost',
-    port: 6379,        
-    password: 'Fs#5132Xcza' 
+    ...config.redis
 })
 
 Client.on('error', err => console.log('Redis Client Error', err))
@@ -13,37 +12,23 @@ export const Startup_Config = async () => {
     await Client.connect()
     if (Client.isOpen) {
         Client.configSet("notify-keyspace-events", "Ex")
-        console.log("[Redis] Client Listening on PORT =>", 6379)
+
+        // ? Start process cache
+        process_cache(Client.duplicate())
+
+        console.log("[Redis] Client Listening on PORT =>", config.redis.port)
     }
-    const sub = Client.duplicate()
-    await sub.connect()
-
-    sub.subscribe("__keyevent@0__:expired", async (key) => {
-        //const payload = await Client.get(`${key}:EX`)
-        console.log('[CACHE EXPIRED] =>',key)
-        //await Client.del(`${key}:EX`)
-    })
-}
-
-export const cron_status_actions = {
-    async GET (coop_name) {
-        return await Client.get(`CRON_${coop_name.toUpperCase()}:STATUS`)
-    },
-    async SET (coop_name,processing) {
-        await Client.set(`CRON_${coop_name.toUpperCase()}:STATUS`,processing)
-        return true
-    }
-}
-
-export const get_init_config = async (bank) => {
-    return await Client.get(`INIT_CONFIGS:${bank}`)
 }
 
 export const BUFFER_QUERY = async (query) => {
     return await Client.keys(`*${query}*`)
 }
 
-// ===== Transection ====== //
+/**
+ * ? TRANSACTION CACHE FUNCTIONS
+ * @typedef { object } TRANSACTION
+ * 
+ */
 
 export const TRANSACTION = { 
     async SET (key,value) {

@@ -1,16 +1,21 @@
 import oracledb from "oracledb"
-import configData from "#configs/config_db" assert { type: 'json'}
+import { createConnection,createPool } from "mysql2/promise"
+import config from "#configs/config" assert { type: 'json'}
 
-const OracledbConfig = {
-    ...configData.oracle
+const Config = {
+    oracle : {
+        ...config.oracle
+    },
+    mysqlPool : {
+        ...config.mysqlPool
+    }
 }
 
-oracledb.getConnection(OracledbConfig, (err, connection) => {
+oracledb.getConnection(Config.oracle, (err, connection) => {
     if (err) {
         console.error('[DB] Error connecting to Oracle: ', err)
         return
     }
-
     connection.ping((pingErr) => {
         if (pingErr) console.error('[DB] Error pinging the database: ', pingErr)
         else console.log('[DB] Connected to Oracle database successfully!')
@@ -23,10 +28,12 @@ oracledb.getConnection(OracledbConfig, (err, connection) => {
     })
 })
 
+export const mysql_pool = createPool({...Config.mysqlPool});
+
 export const oracleExecute = async (query, bindVars = {}) => {
     let connection
     try {
-        connection = await oracledb.getConnection(OracledbConfig)
+        connection = await oracledb.getConnection(Config.oracle)
         const result = await connection.execute(query, bindVars, { autoCommit: true, outFormat: oracledb.OBJECT, bindDefs: bindVars })
         return result
     } catch (err) {
