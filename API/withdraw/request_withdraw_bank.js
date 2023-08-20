@@ -3,7 +3,6 @@ import config from "#configs/config" assert { type: 'json'}
 import { oracleExecute, POST_DEPT_INSERT_SERV_ONLINE, POST_DEPT_INSERT_TEST } from '#db/connection'
 import { convertUndefinedToEmptyString } from '#libs/Functions'
 import { TRANSACTION } from '#cache/redis'
-import { check_ref_no } from './functions.js'
 
 const API = express.Router()
 API.use(express.json())
@@ -49,14 +48,6 @@ API.post('/payment', async (req, res) => {
                 const bind = JSON.parse(await TRANSACTION.GET(`TRANSACTION:${cache_key_name}`))
 
                 for (const bindVar in bindParams) bindParams[bindVar].val = bind[bindVar]
-
-                // NOTE : เช็ค deptslip จาก column ref_no ว่ามีการทำรายการนี้ไปหรือยัง
-                const is_ref_no = await check_ref_no(bind.AS_MACHINE_ID)
-                if (!is_ref_no) {
-                    res.json({ AS_PROCESS_STATUS: false })
-                    res.end()
-                    throw `[TRANSACTION IN][PROCESS] Error - Duplicate 'ref_no'`
-                }
 
                 // NOTE : Start oracle statement
                 await oracleExecute(query, convertUndefinedToEmptyString(bindParams))
