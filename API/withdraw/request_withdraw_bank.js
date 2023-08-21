@@ -1,6 +1,6 @@
 import express from 'express'
 import config from "#configs/config" assert { type: 'json'}
-import { oracleExecute, POST_DEPT_INSERT_SERV_ONLINE, POST_DEPT_INSERT_TEST } from '#db/connection'
+import { oracleExecute, POST_DEPT_INSERT_SERV_ONLINE } from '#db/connection'
 import { convertUndefinedToEmptyString } from '#libs/Functions'
 import { TRANSACTION } from '#cache/redis'
 
@@ -91,17 +91,5 @@ API.post('/payment', async (req, res) => {
     }
 })
 
-API.post('/payment-test', async (req, res) => {
-    const query = `
-        BEGIN
-            POST_DEPT_INSERT_SERV_TEST(
-                AS_BANK_CODE => :AS_BANK_CODE
-            );
-        END;
-    `
-    const result = await oracleExecute(query, POST_DEPT_INSERT_TEST())
-    console.log(result.outBinds)
-    res.json(result.outBinds)
-})
 
 export default API
