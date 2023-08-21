@@ -11,16 +11,15 @@ API.use(express.urlencoded({
     defer: true
 }))
 
-API.post('/verify', async (req, res) => {
+API.post('/cached', async (req, res) => {
     try {
-        const body = req.body
-        const { sigma_key, itemtype, bank_id, ...filteredData } = body
+        const { sigma_key, ...filteredData } = req.body
         await TRANSACTION.SETEX(
             `TRANSACTION:${req.body.itemtype}:${req.body.bank_id}:${sigma_key}`,
             config.w_transaction_verify_exp,
             filteredData
         )
-        console.log(`[TRANSACTION IN][CACHED] Verify successfully - ${req.body.itemtype}:${req.body.bank_id}:${sigma_key}`)
+        console.log(`[TRANSACTION IN][CACHED] Cached successfully - ${req.body.itemtype}:${req.body.bank_id}:${sigma_key}`)
     } catch (error) {
         console.error(`[TRANSACTION IN][CACHE] Error ${req.route.path} - ${error}`)
     }
