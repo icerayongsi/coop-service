@@ -23,7 +23,6 @@ API.post('/cached', async (req, res) => {
     } catch (error) {
         console.error(`[TRANSACTION IN][CACHE] Error ${req.route.path} - ${error}`)
     }
-
     res.end()
 })
 
