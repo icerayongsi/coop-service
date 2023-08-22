@@ -15,11 +15,11 @@ API.post('/cached', async (req, res) => {
     try {
         const { sigma_key, ...filteredData } = req.body
         await TRANSACTION.SETEX(
-            `TRANSACTION:${req.body.itemtype}:${req.body.bank_id}:${sigma_key}`,
+            `TRANSACTION:${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${sigma_key}`,
             config.w_transaction_verify_exp,
             filteredData
         )
-        console.log(`[TRANSACTION IN][CACHED] Cached successfully - ${req.body.itemtype}:${req.body.bank_id}:${sigma_key}`)
+        console.log(`[TRANSACTION IN][CACHED] Cached successfully - ${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${sigma_key}`)
     } catch (error) {
         console.error(`[TRANSACTION IN][CACHE] Error ${req.route.path} - ${error}`)
     }
@@ -35,16 +35,14 @@ API.post('/payment', async (req, res) => {
         let { sigma_key, ...bindfiltered } = req.body
 
         // NOTE : Update cache for PL/SQL arrgument
-        await TRANSACTION.SETEX(
-            `TRANSACTION:${cache_key_name}`,
-            config.w_transaction_first_exp,
-            bindfiltered,
+        await TRANSACTION.GET(
+            `TRANSACTION:${cache_key_name}`
         )
-            .then(async () => {
+            .then(async (bind) => {
                 console.log(`[TRANSACTION IN][PEOCESS] Start - ${cache_key_name}`)
                 console.log(`[TRANSACTION IN][CACHED] Push PL/SQL arrgument - ${cache_key_name}`)
-                const bind = JSON.parse(await TRANSACTION.GET(`TRANSACTION:${cache_key_name}`))
-
+                
+                bind = JSON.parse(bind)
                 for (const bindVar in bindParams) bindParams[bindVar].val = bind[bindVar]
 
                 // NOTE : Start oracle statement
