@@ -34,14 +34,12 @@ API.post('/payment', async (req, res) => {
         const cache_key_name = `${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${req.body.sigma_key}`
         let { sigma_key, ...bindfiltered } = req.body
 
-        // NOTE : Update cache for PL/SQL arrgument
-        await TRANSACTION.GET(
-            `TRANSACTION:${cache_key_name}`
-        )
+        // NOTE : Get cache for PL/SQL arrgument
+        await TRANSACTION.GET(`TRANSACTION:${cache_key_name}`)
             .then(async (bind) => {
                 console.log(`[TRANSACTION IN][PEOCESS] Start - ${cache_key_name}`)
                 console.log(`[TRANSACTION IN][CACHED] Push PL/SQL arrgument - ${cache_key_name}`)
-                
+
                 bind = JSON.parse(bind)
                 for (const bindVar in bindParams) bindParams[bindVar].val = bind[bindVar]
 
@@ -74,6 +72,8 @@ API.post('/payment', async (req, res) => {
                                 await TRANSACTION.DEL(`TRANSACTION:${cache_key_name}`)
                             })
                         console.error(err)
+                        res.status(200).json({AS_PROCESS_STATUS : false})
+                        res.end()
                     })
                 // NOTE : End oracle statement
             })
@@ -87,5 +87,12 @@ API.post('/payment', async (req, res) => {
     }
 })
 
+API.post('/re-payment' , async (req,res) => {
+    try {
+        
+    } catch (error) {
+        
+    }
+})
 
 export default API

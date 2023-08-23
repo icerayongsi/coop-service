@@ -1,5 +1,5 @@
 import { TRANSACTION } from "#cache/redis"
-import { check_ref_no, insert_err_trans } from "#db/query"
+import { check_ref_no, insert_err_trans,last_statement_no } from "#db/query"
 import { oracleExecute, POST_DEPT_INSERT_SERV_ONLINE } from "#db/connection"
 import { convertUndefinedToEmptyString } from "#libs/Functions"
 import config from "#configs/config" assert { type: 'json'}
@@ -36,7 +36,10 @@ export const process_cache = async (cache) => {
                 .then(async (res) => {
                     res = JSON.parse(res)
 
-                    for (const bindVar in bindParams) bindParams[bindVar].val = res[bindVar]
+                    for (const bindVar in bindParams) {
+                        if (bindVar === 'AS_LASTSTMSEQ_NO') bindParams[bindVar].val === await last_statement_no(res.AS_DEPTACCOUNT_NO)
+                        else bindParams[bindVar].val = res[bindVar]
+                    }
 
                     // ? เช็ค ref_no
                     const is_ref_no = await check_ref_no(res.AS_MACHINE_ID)
