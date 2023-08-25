@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { getDirName } from '#libs/helper'
 import { Startup_Config as radis } from '#cache/redis'
-import withdraw_api from '#API/withdraw/request_withdraw_bank'
+import withdraw_api from '#API/withdraw/request_operate_bank'
 import config from "#configs/config" assert { type: 'json'}
 
 // INIT

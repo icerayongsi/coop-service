@@ -11,7 +11,7 @@ API.use(express.urlencoded({
     defer: true
 }))
 
-API.post('/cached', async (req, res) => {
+API.post('/set-cache', async (req, res) => {
     try {
         const { sigma_key, ...filteredData } = req.body
         await TRANSACTION.SETEX(
@@ -19,7 +19,7 @@ API.post('/cached', async (req, res) => {
             config.w_transaction_verify_exp,
             filteredData
         )
-        console.log(`[TRANSACTION IN][CACHED] Cached successfully - ${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${sigma_key}`)
+        console.log(`[TRANSACTION IN][CACHED] Set cached successfully - ${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${sigma_key}`)
     } catch (error) {
         console.error(`[TRANSACTION IN][CACHE] Error ${req.route.path} - ${error}`)
     }
@@ -32,7 +32,6 @@ API.post('/payment', async (req, res) => {
         const bindParams = POST_DEPT_INSERT_SERV_ONLINE.model
         const query = POST_DEPT_INSERT_SERV_ONLINE.query_str
         const cache_key_name = `${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${req.body.sigma_key}`
-        let { sigma_key, ...bindfiltered } = req.body
 
         // NOTE : Get cache for PL/SQL arrgument
         await TRANSACTION.GET(`TRANSACTION:${cache_key_name}`)
@@ -49,6 +48,7 @@ API.post('/payment', async (req, res) => {
                         console.log(`[TRANSACTION IN][PROCESS] Successfully - ${cache_key_name}`)
                         console.log(`[TRANSACTION IN][CACHED] Remove - ${cache_key_name}`)
                         await TRANSACTION.DEL(`TRANSACTION:${cache_key_name}`)
+                        console.log(result.outBinds)
                         res.status(200).json(result.outBinds)
                         res.end()
                     })
@@ -65,7 +65,7 @@ API.post('/payment', async (req, res) => {
                         await TRANSACTION.SETEX(
                             `TRANSACTION:${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${bind.AS_MACHINE_ID}`,
                             config.w_transaction_arg_data_exp,
-                            bindfiltered
+                            bind
                         )
                             // ? ลบ Cache หลัก
                             .then(async () => {
