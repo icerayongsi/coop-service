@@ -1,12 +1,12 @@
 import oracledb from "oracledb"
-import { createConnection,createPool } from "mysql2/promise"
+import { createConnection, createPool } from "mysql2/promise"
 import config from "#configs/config" assert { type: 'json'}
 
 const Config = {
-    oracle : {
+    oracle: {
         ...config.oracle
     },
-    mysqlPool : {
+    mysqlPool: {
         ...config.mysqlPool
     }
 }
@@ -28,7 +28,17 @@ oracledb.getConnection(Config.oracle, (err, connection) => {
     })
 })
 
-export const mysql_pool = createPool({...Config.mysqlPool});
+export const mysql_pool = createPool({ ...Config.mysqlPool });
+
+export const oraclePingConnection = async () => {
+    let connection
+    try {
+        connection = await oracledb.getConnection(Config.oracle)
+        if (connection) return true
+    } catch (error) {
+        return false
+    }
+}
 
 export const oracleExecute = async (query, bindVars = {}) => {
     let connection
