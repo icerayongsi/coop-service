@@ -1,5 +1,6 @@
 import oracledb from "oracledb"
-import { createConnection, createPool } from "mysql2/promise"
+import { createPool } from "mysql2/promise"
+import { c_time } from "#libs/Functions"
 import config from "#configs/config" assert { type: 'json'}
 
 const Config = {
@@ -47,13 +48,13 @@ export const oracleExecute = async (query, bindVars = {}) => {
         const result = await connection.execute(query, bindVars, { autoCommit: true, outFormat: oracledb.OBJECT, bindDefs: bindVars })
         return result
     } catch (err) {
-        throw `[DB] Error connection : ${err}`
+        throw `[${c_time}][DB] Error connection : ${err}`
     } finally {
         if (connection) {
             try {
                 await connection.close()
             } catch (err) {
-                throw `[DB] Error closing connection : ${err}`
+                throw `[${c_time}][DB] Error closing connection : ${err}`
             }
         }
     }
