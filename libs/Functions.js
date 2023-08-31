@@ -5,6 +5,10 @@ import { v4 as uuid } from 'uuid'
 
 // ===== Util Functions =====
 
+export const c_time = () => {
+    return moment().format('YYYY-MM-DD HH:mm:ss')
+}
+
 export const genGUID = () => {
     return uuid()
 }

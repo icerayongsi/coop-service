@@ -1,7 +1,7 @@
 import express from 'express'
 import config from "#configs/config" assert { type: 'json'}
 import { oracleExecute, POST_DEPT_INSERT_SERV_ONLINE } from '#db/connection'
-import { convertUndefinedToEmptyString } from '#libs/Functions'
+import { convertUndefinedToEmptyString,c_time } from '#libs/Functions'
 import { TRANSACTION } from '#cache/redis'
 import { check_ref_no, history_trans ,last_statement_no } from '#db/query'
 import { insert_argpl_log } from './functions.js'
@@ -22,12 +22,12 @@ API.post('/set-cache', async (req, res) => {
             config.w_transaction_verify_exp,
             filteredData
         )
-        console.log(`[TRANSACTION IN][CACHED] Set cached successfully - ${cache_key_name}`)
+        console.log(`[${c_time()}][TRANSACTION IN][CACHED] Set cached successfully - ${cache_key_name}`)
         res.status(200).json({ status: true })
     } catch (e) {
         // TODO : INSERT OL SLIP 8
         insert_argpl_log(req.body.sigma_key, '-1', '0', filteredData, `Set cache Error : ${e}`, null)
-        console.error(`[TRANSACTION IN][CACHE] Error ${req.route.path} - ${e}`)
+        console.error(`[${c_time()}][TRANSACTION IN][CACHE] Error ${req.route.path} - ${e}`)
         res.status(200).json({ status: false })
     }
     res.end()
@@ -43,8 +43,8 @@ API.post('/payment', async (req, res) => {
         // NOTE : Get cache for PL/SQL arrgument
         await TRANSACTION.GET(`TRANSACTION:${cache_key_name}`)
             .then(async (bind) => {
-                console.log(`[TRANSACTION IN][PEOCESS] Start - ${cache_key_name}`)
-                console.log(`[TRANSACTION IN][CACHED] Push PL/SQL arrgument - ${cache_key_name}`)
+                console.log(`[${c_time()}][TRANSACTION IN][PEOCESS] Start - ${cache_key_name}`)
+                console.log(`[${c_time()}][TRANSACTION IN][CACHED] Push PL/SQL arrgument - ${cache_key_name}`)
 
                 bind = JSON.parse(bind)
                 for (const bindVar in bindParams) bindParams[bindVar].val = bind[bindVar]
@@ -61,8 +61,8 @@ API.post('/payment', async (req, res) => {
                 // NOTE : Start oracle statement
                 await oracleExecute(query, convertUndefinedToEmptyString(bindParams))
                     .then(async (result) => {
-                        console.log(`[TRANSACTION IN][PROCESS] Successfully - ${cache_key_name}`)
-                        console.log(`[TRANSACTION IN][CACHED] Remove - ${cache_key_name}`)
+                        console.log(`[${c_time()}][TRANSACTION IN][PROCESS] Successfully - ${cache_key_name}`)
+                        console.log(`[${c_time()}][TRANSACTION IN][CACHED] Remove - ${cache_key_name}`)
 
                         insert_argpl_log(req.body.sigma_key, '0', '1', result.outBinds, `Successfully , PL/SQL : ${result.outBinds.AS_PROCESS_STATUS}`, null)
                         await TRANSACTION.DEL(`TRANSACTION:${cache_key_name}`)
@@ -85,10 +85,6 @@ API.post('/payment', async (req, res) => {
                             config.w_transaction_arg_data_exp,
                             bind
                         )
-                        // ? ลบ Cache หลัก
-                        // .then(async () => {
-                        //     await TRANSACTION.DEL(`TRANSACTION:${cache_key_name}`)
-                        // })
                         console.error(e)
                         res.status(200).json({ AS_PROCESS_STATUS: 'pl_err' })
                         res.end()
@@ -97,11 +93,11 @@ API.post('/payment', async (req, res) => {
             })
             .catch(async (e) => {
                 insert_argpl_log(req.body.sigma_key, '-1', '0', null, `Get cache error : ${e}`, cache_key_name)
-                console.error(`[TRANSACTION IN][CACHED] ${e} - ${cache_key_name}`)
+                console.error(`[${c_time()}][TRANSACTION IN][CACHED] ${e} - ${cache_key_name}`)
             })
     } catch (e) {
         insert_argpl_log(req.body.sigma_key, '-1', '0', null, `API error : ${e}`, cache_key_name)
-        console.error('[API] Error in /payment endpoint : ', e)
+        console.error('[API] Error in /payment endpoint : ', e , `[${c_time()}]`)
         res.status(500).json({ error: 'An error occurred', AS_PROCESS_STATUS: 'pl_err' })
     }
 })
@@ -131,14 +127,14 @@ API.post('/re-payment', async (req, res) => {
 
             await oracleExecute(query, bindParams)
                 .then(async () => {
-                    console.log(`[RE PAYMENT][PROCESS] Successfully : ${bind.AS_MACHINE_ID}`)
+                    console.log(`[${c_time()}][RE PAYMENT][PROCESS] Successfully : ${bind.AS_MACHINE_ID}`)
                 })
         }
 
         res.end()
 
     } catch (e) {
-        console.log(`[RE PAYMENT][PROCESS] API Error : ${e}`)
+        console.log(`[${c_time()}][RE PAYMENT][PROCESS] API Error : ${e}`)
         res.end()
     }
 })

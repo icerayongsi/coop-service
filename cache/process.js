@@ -1,7 +1,7 @@
 import { TRANSACTION } from "#cache/redis"
 import { check_ref_no, insert_log_trans, last_statement_no } from "#db/query"
 import { oracleExecute, oraclePingConnection, POST_DEPT_INSERT_SERV_ONLINE } from "#db/connection"
-import { convertUndefinedToEmptyString } from "#libs/Functions"
+import { convertUndefinedToEmptyString, c_time } from "#libs/Functions"
 import config from "#configs/config" assert { type: 'json'}
 
 export const process_cache = async (cache) => {
@@ -23,13 +23,13 @@ export const process_cache = async (cache) => {
         const query = POST_DEPT_INSERT_SERV_ONLINE.query_str
 
         if (split[0] !== 'EX') {
-            console.log('[CACHE EXPIRED] =>', key)
+            console.log(`[${c_time()}][CACHE EXPIRED] =>`, key)
             return
         }
 
         if (split[1] < limit && await oraclePingConnection()) {
 
-            console.log(`[IN CACHE][PROCESS] Try to call procudure count ${+split[1] + 1} - ${key}`)
+            console.log(`[${c_time()}][IN CACHE][PROCESS] Try to call procudure count ${+split[1] + 1} - ${key}`)
 
             // NOTE : PL/SQL process (เรียกซ้ำค่าที่ค้างใน Cache)
             await TRANSACTION.GET(data_key)
@@ -43,12 +43,12 @@ export const process_cache = async (cache) => {
 
                     // ? เช็ค ref_no
                     const is_ref_no = await check_ref_no(res.AS_MACHINE_ID)
-                    if (!is_ref_no) console.log(`[IN CACHE][ACTION] Error - Duplicate 'ref_no'`)
+                    if (!is_ref_no) console.log(`[${c_time()}][IN CACHE][ACTION] Error - Duplicate 'ref_no'`)
 
                     await oracleExecute(query, convertUndefinedToEmptyString(bindParams))
                         .then(async (res) => {
-                            console.log(`[IN CACHE][PROCESS] Successfully - ${data_key}`)
-                            console.log(`[IN CACHE][ACTION] Remove - ${data_key}`)
+                            console.log(`[${c_time()}][IN CACHE][PROCESS] Successfully - ${data_key}`)
+                            console.log(`[${c_time()}][IN CACHE][ACTION] Remove - ${data_key}`)
 
                             const payload = {
                                 sigma_key: split[5],
@@ -66,7 +66,7 @@ export const process_cache = async (cache) => {
                         })
                         // ! หากไม่สำเร็จจะทำการนับ Count เพิ่ม
                         .catch(async () => {
-                            console.error(`[IN CACHE][PROCESS] Error to call procudure count ${+split[1] + 1} - ${key}`)
+                            console.error(`[${c_time()}][IN CACHE][PROCESS] Error to call procudure count ${+split[1] + 1} - ${key}`)
                             split[1] = +split[1] + 1
                             const new_key = split.join(':')
                             await TRANSACTION.SETEX(new_key, config.w_transaction_redis_count_exp, '')
@@ -75,7 +75,7 @@ export const process_cache = async (cache) => {
                 .catch(async (e) => {
                     await TRANSACTION.DEL(key)
                     await TRANSACTION.DEL(data_key)
-                    console.error(`[IN CACHE][ACTION] ${e} - ${data_key}`)
+                    console.error(`[${c_time()}][IN CACHE][ACTION] ${e} - ${data_key}`)
                 })
 
             // NOTE : ------------------
@@ -93,12 +93,12 @@ export const process_cache = async (cache) => {
                 description : `Out of round limit (${split[1]})`
             }
             const result = insert_log_trans(payload)
-            console.log(`[DB] Insert to history ${result} - ${data_key}`)
+            console.log(`[${c_time()}][DB] Insert to history ${result} - ${data_key}`)
 
             // NOTE 2 : ------------------
 
             await TRANSACTION.DEL(data_key)
-            console.log('[CACHE EXPIRED] =>', data_key)
+            console.log(`[${c_time()}][CACHE EXPIRED] =>`, data_key)
         }
 
         if (!(await oraclePingConnection())) {
@@ -106,7 +106,7 @@ export const process_cache = async (cache) => {
                 await TRANSACTION.DEL(key)
                 await TRANSACTION.DEL(data_key)
             } else {
-                console.error(`[IN CACHE][PROCESS] Error to connection database count ${+split[1] + 1} - ${key}`)
+                console.error(`[${c_time()}][IN CACHE][PROCESS] Error to connection database count ${+split[1] + 1} - ${key}`)
                 split[1] = +split[1] + 1
                 const new_key = split.join(':')
                 await TRANSACTION.SETEX(new_key, config.w_transaction_redis_count_exp, '')
