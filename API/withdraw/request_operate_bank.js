@@ -23,6 +23,7 @@ API.post('/set-cache', async (req, res) => {
             filteredData
         )
         console.log(`[TRANSACTION IN][CACHED] Set cached successfully - ${cache_key_name}`)
+        res.status(200).json({ status: true })
     } catch (e) {
         // TODO : INSERT OL SLIP 8
         insert_argpl_log(req.body.sigma_key, '-1', '0', filteredData, `Set cache Error : ${e}`, null)
@@ -129,7 +130,7 @@ API.post('/re-payment', async (req, res) => {
             }
 
             await oracleExecute(query, bindParams)
-                .then(async (res) => {
+                .then(async () => {
                     console.log(`[RE PAYMENT][PROCESS] Successfully : ${bind.AS_MACHINE_ID}`)
                 })
         }
