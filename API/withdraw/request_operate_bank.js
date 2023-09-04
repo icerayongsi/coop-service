@@ -3,7 +3,7 @@ import config from "#configs/config" assert { type: 'json'}
 import { oracleExecute, POST_DEPT_INSERT_SERV_ONLINE } from '#db/connection'
 import { convertUndefinedToEmptyString,c_time } from '#libs/Functions'
 import { TRANSACTION } from '#cache/redis'
-import { check_ref_no, history_trans ,last_statement_no } from '#db/query'
+import { check_ref_no, history_trans ,last_statement_no,olslip } from '#db/query'
 import { insert_argpl_log } from './functions.js'
 
 const API = express.Router()
@@ -14,7 +14,7 @@ API.use(express.urlencoded({
 }))
 
 API.post('/set-cache', async (req, res) => {
-    const { sigma_key, ...filteredData } = req.body
+    const { sigma_key, item_status, ...filteredData } = req.body
     const cache_key_name = `${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${req.body.sigma_key}:${req.body.AS_MACHINE_ID}`
     try {
         await TRANSACTION.SETEX(
@@ -33,8 +33,14 @@ API.post('/set-cache', async (req, res) => {
     res.end()
 })
 
+// API.post('/bank-result' , async (req,res) => {
+//     const cache_key_name = `${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${req.body.sigma_key}:${req.body.AS_MACHINE_ID}`
+//     console.log(`[${c_time()}][TRANSACTION IN][BANK] Successfully - ${cache_key_name}`)
+// })
+
 API.post('/payment', async (req, res) => {
     const cache_key_name = `${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${req.body.sigma_key}:${req.body.AS_MACHINE_ID}`
+    console.log(`[${c_time()}][TRANSACTION IN][PEOCESS] In payment - ${cache_key_name}`)
     try {
         // NOTE : Init variable/Model PL/SQL and body
         const bindParams = POST_DEPT_INSERT_SERV_ONLINE.model
@@ -45,6 +51,7 @@ API.post('/payment', async (req, res) => {
             .then(async (bind) => {
                 console.log(`[${c_time()}][TRANSACTION IN][PEOCESS] Start - ${cache_key_name}`)
                 console.log(`[${c_time()}][TRANSACTION IN][CACHED] Push PL/SQL arrgument - ${cache_key_name}`)
+                console.log(`[${c_time()}][TRANSACTION IN][PEOCESS] Data (9) - ${bind}`)
 
                 bind = JSON.parse(bind)
                 for (const bindVar in bindParams) bindParams[bindVar].val = bind[bindVar]
@@ -63,7 +70,8 @@ API.post('/payment', async (req, res) => {
                     .then(async (result) => {
                         console.log(`[${c_time()}][TRANSACTION IN][PROCESS] Successfully - ${cache_key_name}`)
                         console.log(`[${c_time()}][TRANSACTION IN][CACHED] Remove - ${cache_key_name}`)
-
+                        console.log(`[${c_time()}][TRANSACTION IN][PROCESS] Procedure Success Data (1) - ${JSON.stringify(bind)}`)
+                        
                         insert_argpl_log(req.body.sigma_key, '0', '1', result.outBinds, `Successfully , PL/SQL : ${result.outBinds.AS_PROCESS_STATUS}`, null)
                         await TRANSACTION.DEL(`TRANSACTION:${cache_key_name}`)
                         res.status(200).json(result.outBinds)
@@ -72,6 +80,7 @@ API.post('/payment', async (req, res) => {
                     // ! ไม่สำเร็จ จะเข้าสู่ Process cache
                     // ? สร้าง Cache 2 ตัว 1 ตัวนับหมดเวลา อีกตัวเก็บข้อมูล
                     .catch(async (e) => {
+                        console.log(`[${c_time()}][TRANSACTION IN][PROCESS] Procedure Unsuccess Data (-9) - ${JSON.stringify(bind)}`)
                         insert_argpl_log(req.body.sigma_key, '-1', '0', null, `Call procedure error , PL/SQL : ${e}`, cache_key_name)
                         // ? Cache เปล่า ตั้งเวลา 5 วิ
                         await TRANSACTION.SETEX(

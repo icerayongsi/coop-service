@@ -26,7 +26,8 @@ export const insert_log_trans = async (payload) => {
             JSON.stringify(payload.payload),
             payload.description
         ]
-        const [ result ] = await mysql_pool.query(query, bind)
+        
+        const [result] = await mysql_pool.query(query, bind)
         return result
     } catch (e) {
         console.error(`[DB] Error - ${e}`)
@@ -39,8 +40,8 @@ export const last_statement_no = async (payload) => {
         FROM dpdeptmaster dpm
         LEFT JOIN dpdepttype dpt ON dpm.DEPTTYPE_CODE = dpt.DEPTTYPE_CODE AND dpm.membcat_code = dpt.membcat_code
         WHERE dpm.DEPTACCOUNT_NO = :deptaccount_no`
-        const bind = [ payload ]
-        const result = (await oracleExecute(query,bind)).rows
+        const bind = [payload]
+        const result = (await oracleExecute(query, bind)).rows
         return result[0].LASTSTMSEQ_NO
     } catch (error) {
         console.error(`[DB] Error - ${error}`)
@@ -48,18 +49,35 @@ export const last_statement_no = async (payload) => {
 }
 
 export const history_trans = {
-    async get(payload, arg_query) {
+    async get(payload) {
         try {
             const query = `SELECT DISTINCT payload FROM gctranshistory WHERE ref_no = ? AND datetime = ?`
             const bind = [
                 payload.ref_no,
                 payload.datetime
             ]
-            const [ result ] = await mysql_pool.query(query, bind)
+            const [result] = await mysql_pool.query(query, bind)
             return result[0]
         } catch (e) {
             return e
         }
-       
+    }
+}
+
+export const olslip = async (body) => {
+    const olslip_columns = [
+        'BANK_CODE', 'DEPTACCOUNT_NO', 'MEMBCAT_CODE',
+        'DEPTTYPE_CODE', 'DEPTGROUP_CODE', 'OPERATE_TIME',
+        'ENTRY_ID', 'DEPTITEMTYPE_CODE', 'CASH_TYPE', 'MACHINE_ID',
+        'DEPTSLIP_NETAMT','FEE_AMT','OTHER_AMT','PRNCBAL',
+        'WITHDRAWABLE_AMT','DPSTM_NO'
+    ]
+    try {
+        const query = `SELECT ${olslip_columns.join(',')} FROM dpdeptolslip WHERE MACHINE_ID = '${body.mc_id}'`
+        const result = (await oracleExecute(query)).rows
+        
+        return result
+    } catch (e) {
+        return e
     }
 }

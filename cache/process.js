@@ -24,6 +24,15 @@ export const process_cache = async (cache) => {
 
         if (split[0] !== 'EX') {
             console.log(`[${c_time()}][CACHE EXPIRED] =>`, key)
+            // const payload = {
+            //     sigma_key: split[4],
+            //     ref_no: split[5],
+            //     f_round: '-9',
+            //     success : `${+(JSON.parse(await TRANSACTION.GET(key)).item_status) + 1}`,
+            //     payload: JSON.parse(await TRANSACTION.GET(key)),
+            //     description : ''
+            // }
+            // insert_log_trans(payload)
             return
         }
 
@@ -49,7 +58,7 @@ export const process_cache = async (cache) => {
                         .then(async (res) => {
                             console.log(`[${c_time()}][IN CACHE][PROCESS] Successfully - ${data_key}`)
                             console.log(`[${c_time()}][IN CACHE][ACTION] Remove - ${data_key}`)
-
+                            
                             const payload = {
                                 sigma_key: split[5],
                                 ref_no: split[6],
