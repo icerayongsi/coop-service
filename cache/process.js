@@ -38,7 +38,7 @@ export const process_cache = async (cache) => {
 
         if (split[1] < limit && await oraclePingConnection()) {
 
-            console.log(`[${c_time()}][IN CACHE][PROCESS] Try to call procudure count ${+split[1] + 1} - ${key}`)
+            console.log(`[${c_time()}][IN CACHE][PROCESS] เรียก Procedure ครั้งที่ ${+split[1] + 1} - ${key}`)
 
             // NOTE : PL/SQL process (เรียกซ้ำค่าที่ค้างใน Cache)
             await TRANSACTION.GET(data_key)
@@ -56,8 +56,7 @@ export const process_cache = async (cache) => {
 
                     await oracleExecute(query, convertUndefinedToEmptyString(bindParams))
                         .then(async (res) => {
-                            console.log(`[${c_time()}][IN CACHE][PROCESS] Successfully - ${data_key}`)
-                            console.log(`[${c_time()}][IN CACHE][ACTION] Remove - ${data_key}`)
+                            console.log(`[${c_time()}][IN CACHE][PROCESS] เรียก Procedure แล้ว - ${data_key}`)
                             
                             const payload = {
                                 sigma_key: split[5],
