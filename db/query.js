@@ -36,7 +36,7 @@ export const insert_log_trans = async (payload) => {
 
 export const last_statement_no = async (payload) => {
     try {
-        const query = `SELECT MAX(DPM.SEQ_NO) FROM dpdeptstatement dpm WHERE dpm.DEPTACCOUNT_NO = :deptaccount_no`
+        const query = `SELECT MAX(DPM.SEQ_NO) AS SEQ_NO FROM dpdeptstatement dpm WHERE dpm.DEPTACCOUNT_NO = :deptaccount_no`
         const bind = [payload]
         const result = (await oracleExecute(query, bind)).rows
         return result[0].SEQ_NO
@@ -76,5 +76,16 @@ export const olslip = async (body) => {
         return result
     } catch (e) {
         return e
+    }
+}
+
+export const update_gctrans = async (body) => {
+    try {
+        const query = `UPDATE gctransaction SET result_transaction = '1' WHERE ref_no = '?'`
+        const bind = [ body.ref_no ]
+        const [ result ] = await mysql_pool.query(query, bind)
+        return result
+    } catch (error) {
+        console.error(`[DB] Error - ${e}`)
     }
 }

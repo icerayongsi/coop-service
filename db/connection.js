@@ -48,13 +48,13 @@ export const oracleExecute = async (query, bindVars = {}) => {
         const result = await connection.execute(query, bindVars, { autoCommit: true, outFormat: oracledb.OBJECT, bindDefs: bindVars })
         return result
     } catch (err) {
-        throw `[${c_time}][DB] Error connection : ${err}`
+        throw `[${c_time()}][DB] Error connection : ${err}`
     } finally {
         if (connection) {
             try {
                 await connection.close()
             } catch (err) {
-                throw `[${c_time}][DB] Error closing connection : ${err}`
+                throw `[${c_time()}][DB] Error closing connection : ${err}`
             }
         }
     }
@@ -97,6 +97,7 @@ export const POST_DEPT_INSERT_SERV_ONLINE = {
                 AS_LASTSTMSEQ_NO_=>:AS_LASTSTMSEQ_NO ,
                 AS_ACTION_STATUS_=>:AS_ACTION_STATUS,
                 AS_POST_STATUS_=>:AS_POST_STATUS,
+                AS_LASTCALINT_DATE_ => :AS_LASTCALINT_DATE,
                 AS_DEPTSLIP_NO=>:AS_DEPTSLIP_NO,
                 AS_DEPTSLIP_NO_FEE=>:AS_DEPTSLIP_NO_FEE,
                 AS_DEPTSLIP_NO_OTH=>:AS_DEPTSLIP_NO_OTH,
@@ -129,6 +130,7 @@ export const POST_DEPT_INSERT_SERV_ONLINE = {
         AS_LASTSTMSEQ_NO: { dir: oracledb.BIND_INOUT, type: oracledb.STRING, maxSize: 10 },
         AS_ACTION_STATUS: { dir: oracledb.BIND_INOUT, type: oracledb.STRING, maxSize: 5 },
         AS_POST_STATUS: { dir: oracledb.BIND_INOUT, type: oracledb.STRING, maxSize: 2 },
+        AS_LASTCALINT_DATE: { dir: oracledb.BIND_INOUT, type: oracledb.STRING, maxSize: 50 },
         AS_DEPTSLIP_NO: { dir: oracledb.BIND_INOUT, type: oracledb.STRING, maxSize: 30 },
         AS_DEPTSLIP_NO_FEE: { dir: oracledb.BIND_INOUT, type: oracledb.STRING, maxSize: 30 },
         AS_DEPTSLIP_NO_OTH: { dir: oracledb.BIND_INOUT, type: oracledb.STRING, maxSize: 30 },

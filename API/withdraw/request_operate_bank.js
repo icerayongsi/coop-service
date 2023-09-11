@@ -3,7 +3,7 @@ import config from "#configs/config" assert { type: 'json'}
 import { oracleExecute, POST_DEPT_INSERT_SERV_ONLINE } from '#db/connection'
 import { convertUndefinedToEmptyString, c_time } from '#libs/Functions'
 import { TRANSACTION } from '#cache/redis'
-import { check_ref_no, history_trans, last_statement_no, olslip } from '#db/query'
+import { check_ref_no, history_trans, last_statement_no, update_gctrans } from '#db/query'
 import { insert_argpl_log } from './functions.js'
 
 const API = express.Router()
@@ -33,122 +33,104 @@ API.post('/set-cache', async (req, res) => {
     res.end()
 })
 
-// API.post('/bank-result' , async (req,res) => {
-//     const cache_key_name = `${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${req.body.sigma_key}:${req.body.AS_MACHINE_ID}`
-//     console.log(`[${c_time()}][TRANSACTION IN][BANK] Successfully - ${cache_key_name}`)
-// })
-
 API.post('/payment', async (req, res) => {
     const cache_key_name = `${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${req.body.sigma_key}:${req.body.AS_MACHINE_ID}`
     console.log(`[${c_time()}][TRANSACTION IN][PEOCESS] 3 โอนธนาคารสำเร็จ ก่อนเรียก Procedure - ${req.body.AS_MACHINE_ID}`)
-    console.log(req.body)
+    const { sigma_key, item_status, ...bind } = req.body
     try {
         // NOTE : Init variable/Model PL/SQL and body
         const bindParams = POST_DEPT_INSERT_SERV_ONLINE.model
         const query = POST_DEPT_INSERT_SERV_ONLINE.query_str
 
-        // NOTE : Get cache for PL/SQL arrgument
-        await TRANSACTION.GET(`TRANSACTION:${cache_key_name}`)
-            .then(async (bind) => {
-                //console.log(`[${c_time()}][TRANSACTION IN][PEOCESS] 3 ข้อมูลจากแคช - ${bind}`)
+        for (const bindVar in bindParams) bindParams[bindVar].val = bind[bindVar]
 
-                bind = JSON.parse(bind)
-                for (const bindVar in bindParams) bindParams[bindVar].val = bind[bindVar]
+        // NOTE : Start oracle statement
+        await oracleExecute(query, convertUndefinedToEmptyString(bindParams))
+            .then(async (result) => {
 
-                // NOTE : Start oracle statement
-                await oracleExecute(query, convertUndefinedToEmptyString(bindParams))
-                    .then(async (result) => {
+                //insert_argpl_log(req.body.sigma_key, '0', '1', result.outBinds, `Successfully , PL/SQL : ${result.outBinds.AS_PROCESS_STATUS}`, null)
+                if (result.outBinds.AS_PROCESS_STATUS.includes('1:success')) {
+                    console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 3.1 เรียก Procedure สำเร็จ - ${req.body.AS_MACHINE_ID} - ${JSON.stringify(result.outBinds.AS_PROCESS_STATUS)}`)
 
-                        //insert_argpl_log(req.body.sigma_key, '0', '1', result.outBinds, `Successfully , PL/SQL : ${result.outBinds.AS_PROCESS_STATUS}`, null)
-                        if (result.outBinds.AS_PROCESS_STATUS.includes('1:success')) {
-                            console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 3.1 เรียก Procedure สำเร็จ - ${req.body.AS_MACHINE_ID} - ${JSON.stringify(result.outBinds)}`)
-
-                            const is_ref_no = await check_ref_no(result.outBinds.AS_MACHINE_ID)
-                            if (is_ref_no) {
-                                await TRANSACTION.DEL(`TRANSACTION:${cache_key_name}`)
-                                res.status(200).json(result.outBinds)
-                                res.end()
-                            } else {
-                                console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 3.3 เรียก Procedure สำเร็จ ไม่สำเร็จ - ${req.body.AS_MACHINE_ID} - ${JSON.stringify(result.outBinds)}`)
-                                res.status(200).json({ AS_PROCESS_STATUS: 'pl_err' })
-                                res.end()
-                                throw "Error - Duplicate 'ref_no"
-                            }
-
-                        } else {
-
-                            console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 3.2 เรียก Procedure รอบ 2 - ${req.body.AS_MACHINE_ID} - ${JSON.stringify(result.outBinds)}`)
-
-                            // ? เช็ค ref_no ว่ามีซ้ำหรือไม่ ถ้ามี return เป็น false ถ้าไม่มี เป็น true
-                            const is_ref_no_2 = await check_ref_no(result.outBinds.AS_MACHINE_ID)
-                            if (is_ref_no_2) {
-                                res.status(200).json({ AS_PROCESS_STATUS: 'pl_err' })
-                                res.end()
-                                throw `Error - Duplicate 'ref_no'`
-                            }
-
-                            // ? ดึงค่า max seq_no มาใส่ last_statemente
-                            for (const bindVar in bindParams) {
-                                if (bindVar === 'AS_LASTSTMSEQ_NO') bindParams[bindVar].val = `${await last_statement_no(result.outBinds.AS_DEPTACCOUNT_NO)}`
-                                else bindParams[bindVar].val = result.outBinds[bindVar]
-                            }
-
-                            let result2ND
-
-                            try {
-                                result2ND = await oracleExecute(query, convertUndefinedToEmptyString(bindParams))
-
-                                if (result2ND.outBinds.AS_PROCESS_STATUS.includes('1:success')) {
-                                    console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 3.2.1 เรียก Procedure รอบ 2 สำเร็จ - ${req.body.AS_MACHINE_ID} - ${JSON.stringify(result2ND.outBinds)}`)
-
-                                    await TRANSACTION.DEL(`TRANSACTION:${cache_key_name}`)
-                                    res.status(200).json(result2ND.outBinds)
-                                    res.end()
-                                } else {
-                                    console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 3.2.2 เรียก Procedure รอบ 2 สำเร็จ - ${req.body.AS_MACHINE_ID} - ${JSON.stringify(result2ND.outBinds)}`)
-                                    throw 'เรียก Procedure รอบที่ 2 ไม่สำเร็จ'
-                                }
-
-                            } catch (e) {
-                                throw e
-                            }
-                        }
-                    })
-                    // ! ไม่สำเร็จ จะเข้าสู่ Process cache
-                    // ? สร้าง Cache 2 ตัว 1 ตัวนับหมดเวลา อีกตัวเก็บข้อมูล
-                    .catch(async (e) => {
-                        console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 4 รอบ 3 - ${req.body.AS_MACHINE_ID} - ${e}`)
-                        //insert_argpl_log(req.body.sigma_key, '-1', '0', null, `Call procedure error , PL/SQL : ${e}`, cache_key_name)
-                        // ? Cache เปล่า ตั้งเวลา 5 วิ
-                        await TRANSACTION.SETEX(
-                            `EX:0:TRANSACTION:${cache_key_name}`,
-                            config.w_transaction_redis_count_exp,
-                            '',
-                        )
-                        // ? Cache เก็บข้อมูล ตั้งเวลา 1 ชั่วโมงเพื่อปกกันการค้างใน Cache
-                        await TRANSACTION.SETEX(
-                            `TRANSACTION:${cache_key_name}`,
-                            config.w_transaction_arg_data_exp,
-                            bind
-                        )
-                        console.error(e)
+                    const is_ref_no = await check_ref_no(result.outBinds.AS_MACHINE_ID)
+                    if (is_ref_no) {
+                        res.status(200).json(result.outBinds)
+                        res.end()
+                    } else {
+                        console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 3.3 เรียก Procedure สำเร็จ ไม่สำเร็จ - ${req.body.AS_MACHINE_ID} - ${JSON.stringify(result.outBinds.AS_PROCESS_STATUS)}`)
                         res.status(200).json({ AS_PROCESS_STATUS: 'pl_err' })
                         res.end()
-                    })
-                // NOTE : End oracle statement
+                        throw "Error - Duplicate 'ref_no"
+                    }
+
+                } else {
+
+                    console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 3.2 เรียก Procedure รอบ 2 - ${req.body.AS_MACHINE_ID}`)
+
+                    // ? เช็ค ref_no ว่ามีซ้ำหรือไม่ ถ้ามี return เป็น false ถ้าไม่มี เป็น true
+                    const is_ref_no_2 = await check_ref_no(result.outBinds.AS_MACHINE_ID)
+                    if (is_ref_no_2) {
+                        res.status(200).json({ AS_PROCESS_STATUS: 'pl_err' })
+                        res.end()
+                        throw `Error - Duplicate 'ref_no'`
+                    }
+
+                    // ? ดึงค่า max seq_no มาใส่ last_statemente
+                    for (const bindVar in bindParams) {
+                        if (bindVar === 'AS_LASTSTMSEQ_NO') bindParams[bindVar].val = `${await last_statement_no(result.outBinds.AS_DEPTACCOUNT_NO) + 1}`
+                        else bindParams[bindVar].val = result.outBinds[bindVar]
+                    }
+
+                    try {
+                        const result2ND = await oracleExecute(query, convertUndefinedToEmptyString(bindParams))
+
+                        if (result2ND.outBinds.AS_PROCESS_STATUS.includes('1:success')) {
+                            console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 3.2.1 เรียก Procedure รอบ 2 สำเร็จ - ${req.body.AS_MACHINE_ID} - ${JSON.stringify(result2ND.outBinds.AS_PROCESS_STATUS)}`)
+                            res.status(200).json(result2ND.outBinds)
+                            res.end()
+                        } else {
+                            console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 3.2.2 เรียก Procedure รอบ 2 ไม่สำเร็จ - ${req.body.AS_MACHINE_ID} - ${JSON.stringify(result2ND.outBinds.AS_PROCESS_STATUS)}`)
+                            // res.status(200).json({ AS_PROCESS_STATUS: 'pl_err' })
+                            // res.end()
+                            throw 'เรียก Procedure รอบที่ 2 ไม่สำเร็จ'
+                        }
+                    } catch (e) {
+                        // res.status(200).json({ AS_PROCESS_STATUS: 'pl_err' })
+                        // res.end()
+                        throw e
+                    }
+                }
             })
+            // ! ไม่สำเร็จ จะเข้าสู่ Process cache
+            // ? สร้าง Cache 2 ตัว 1 ตัวนับหมดเวลา อีกตัวเก็บข้อมูล
             .catch(async (e) => {
-                //insert_argpl_log(req.body.sigma_key, '-1', '0', null, `Get cache error : ${e}`, cache_key_name)
-                console.error(`[${c_time()}][TRANSACTION IN][CACHED] ${e} - ${cache_key_name}`)
+                console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 4 รอบ 3 - ${req.body.AS_MACHINE_ID} - ${e}`)
+                //insert_argpl_log(req.body.sigma_key, '-1', '0', null, `Call procedure error , PL/SQL : ${e}`, cache_key_name)
+                // ? Cache เปล่า ตั้งเวลา 5 วิ
+                await TRANSACTION.SETEX(
+                    `EX:0:TRANSACTION:${cache_key_name}`,
+                    config.w_transaction_redis_count_exp,
+                    '',
+                )
+                // ? Cache เก็บข้อมูล ตั้งเวลา 1 ชั่วโมงเพื่อปกกันการค้างใน Cache
+                await TRANSACTION.SETEX(
+                    `TRANSACTION:${cache_key_name}`,
+                    config.w_transaction_arg_data_exp,
+                    bind
+                )
+                console.error(e)
+                res.status(200).json({ AS_PROCESS_STATUS: 'pl_err' })
+                res.end()
             })
+        // NOTE : End oracle statement
     } catch (e) {
         //insert_argpl_log(req.body.sigma_key, '-1', '0', null, `API error : ${e}`, cache_key_name)
-        console.error('[API] Error in /payment endpoint : ', e, `[${c_time()}]`)
-        res.status(500).json({ error: 'An error occurred', AS_PROCESS_STATUS: 'pl_err' })
+        console.log(`[${c_time()}][TRANSACTION IN][PROCESS] Error - ${e}`)
+        res.status(500).json({ AS_PROCESS_STATUS: 'pl_err' })
     }
 })
 
-API.post('/re-payment', async (req, res) => {
+API.post('/re-post', async (req, res) => {
 
     const data = req.body
     const bindParams = POST_DEPT_INSERT_SERV_ONLINE.model
@@ -156,31 +138,32 @@ API.post('/re-payment', async (req, res) => {
 
     try {
 
-        for (const element of data) {
-            const result = await history_trans.get(element)
+        for (const bindVar in bindParams) bindParams[bindVar].val = data[bindVar]
 
-            const bind = JSON.parse(result.payload)
-            for (const bindVar in bindParams) {
-                if (bindVar === 'AS_LASTSTMSEQ_NO') bindParams[bindVar].val = `${await last_statement_no(bind.AS_DEPTACCOUNT_NO)}`
-                else bindParams[bindVar].val = bind[bindVar]
-            }
+        console.log(bindParams)
 
-            const is_ref_no = await check_ref_no(bind.AS_MACHINE_ID)
-            if (is_ref_no) {
-                res.end()
-                throw `Error - Duplicate 'ref_no'`
-            }
-
-            await oracleExecute(query, bindParams)
+        await oracleExecute(query, convertUndefinedToEmptyString(bindParams))
                 .then(async () => {
-                    console.log(`[${c_time()}][RE PAYMENT][PROCESS] Successfully : ${bind.AS_MACHINE_ID}`)
+                    console.log(`[${c_time()}][RE POST][PROCESS] Execute procedure successfully : ${bind.AS_MACHINE_ID}`)
                 })
-        }
 
-        res.end()
+        res.status(200).end()
+
+        // for (const element of data) {
+        //     for (const bindVar in bindParams) {
+        //         if (bindVar === 'AS_LASTSTMSEQ_NO') bindParams[bindVar].val = `${await last_statement_no(element.AS_DEPTACCOUNT_NO)}`
+        //         else bindParams[bindVar].val = element[bindVar]
+        //     }
+
+        //     const is_ref_no = await check_ref_no(element.AS_MACHINE_ID)
+        //     if (is_ref_no) {
+        //         res.end()
+        //         throw `Error - Duplicate 'ref_no'`
+        //     }
+        // }
 
     } catch (e) {
-        console.log(`[${c_time()}][RE PAYMENT][PROCESS] API Error : ${e}`)
+        console.log(`[${c_time()}][RE POST][PROCESS] API Error : ${e}`)
         res.end()
     }
 })

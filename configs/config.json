@@ -26,5 +26,5 @@
     "w_transaction_arg_data_exp": 3600,
     "w_transaction_first_exp": 15,
     "w_transaction_redis_count_exp": 5,
-    "w_redis_round_limit_exp": 1
+    "w_redis_round_limit_exp": 2
 }
