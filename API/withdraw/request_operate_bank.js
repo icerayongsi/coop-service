@@ -3,7 +3,7 @@ import config from "#configs/config" assert { type: 'json'}
 import { oracleExecute, POST_DEPT_INSERT_SERV_ONLINE } from '#db/connection'
 import { convertUndefinedToEmptyString, c_time } from '#libs/Functions'
 import { TRANSACTION } from '#cache/redis'
-import { check_ref_no, history_trans, last_statement_no, update_gctrans } from '#db/query'
+import { check_ref_no, history_trans, last_statement_no, olslip } from '#db/query'
 import { insert_argpl_log } from './functions.js'
 
 const API = express.Router()
@@ -35,7 +35,7 @@ API.post('/set-cache', async (req, res) => {
 
 API.post('/payment', async (req, res) => {
     const cache_key_name = `${req.body.AS_SLIPITEMTYPE_CODE}:${req.body.AS_BANK_CODE}:${req.body.sigma_key}:${req.body.AS_MACHINE_ID}`
-    console.log(`[${c_time()}][TRANSACTION IN][PEOCESS] 3 โอนธนาคารสำเร็จ ก่อนเรียก Procedure - ${req.body.AS_MACHINE_ID}`)
+    //console.log(`[${c_time()}][TRANSACTION IN][PEOCESS] 3 โอนธนาคารสำเร็จ ก่อนเรียก Procedure - ${req.body.AS_MACHINE_ID}`)
     const { sigma_key, item_status, ...bind } = req.body
     try {
         // NOTE : Init variable/Model PL/SQL and body
@@ -50,7 +50,7 @@ API.post('/payment', async (req, res) => {
 
                 //insert_argpl_log(req.body.sigma_key, '0', '1', result.outBinds, `Successfully , PL/SQL : ${result.outBinds.AS_PROCESS_STATUS}`, null)
                 if (result.outBinds.AS_PROCESS_STATUS.includes('1:success')) {
-                    console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 3.1 เรียก Procedure สำเร็จ - ${req.body.AS_MACHINE_ID} - ${JSON.stringify(result.outBinds.AS_PROCESS_STATUS)}`)
+                    //console.log(`[${c_time()}][TRANSACTION IN][PROCESS] 3.1 เรียก Procedure สำเร็จ - ${req.body.AS_MACHINE_ID} - ${JSON.stringify(result.outBinds.AS_PROCESS_STATUS)}`)
 
                     const is_ref_no = await check_ref_no(result.outBinds.AS_MACHINE_ID)
                     if (is_ref_no) {
@@ -130,7 +130,7 @@ API.post('/payment', async (req, res) => {
     }
 })
 
-API.post('/re-post', async (req, res) => {
+API.post('/re-payment', async (req, res) => {
 
     const data = req.body
     const bindParams = POST_DEPT_INSERT_SERV_ONLINE.model
@@ -138,32 +138,31 @@ API.post('/re-post', async (req, res) => {
 
     try {
 
-        for (const bindVar in bindParams) bindParams[bindVar].val = data[bindVar]
+        for (const element of data) {
+            const result = await history_trans.get(element)
 
-        console.log(bindParams)
+            const bind = JSON.parse(result.payload)
+            for (const bindVar in bindParams) {
+                if (bindVar === 'AS_LASTSTMSEQ_NO') bindParams[bindVar].val = `${await last_statement_no(bind.AS_DEPTACCOUNT_NO)}`
+                else bindParams[bindVar].val = bind[bindVar]
+            }
 
-        await oracleExecute(query, convertUndefinedToEmptyString(bindParams))
+            const is_ref_no = await check_ref_no(bind.AS_MACHINE_ID)
+            if (is_ref_no) {
+                res.end()
+                throw `Error - Duplicate 'ref_no'`
+            }
+
+            await oracleExecute(query, bindParams)
                 .then(async () => {
-                    console.log(`[${c_time()}][RE POST][PROCESS] Execute procedure successfully : ${bind.AS_MACHINE_ID}`)
+                    console.log(`[${c_time()}][RE PAYMENT][PROCESS] Successfully : ${bind.AS_MACHINE_ID}`)
                 })
+        }
 
-        res.status(200).end()
-
-        // for (const element of data) {
-        //     for (const bindVar in bindParams) {
-        //         if (bindVar === 'AS_LASTSTMSEQ_NO') bindParams[bindVar].val = `${await last_statement_no(element.AS_DEPTACCOUNT_NO)}`
-        //         else bindParams[bindVar].val = element[bindVar]
-        //     }
-
-        //     const is_ref_no = await check_ref_no(element.AS_MACHINE_ID)
-        //     if (is_ref_no) {
-        //         res.end()
-        //         throw `Error - Duplicate 'ref_no'`
-        //     }
-        // }
+        res.end()
 
     } catch (e) {
-        console.log(`[${c_time()}][RE POST][PROCESS] API Error : ${e}`)
+        console.log(`[${c_time()}][RE PAYMENT][PROCESS] API Error : ${e}`)
         res.end()
     }
 })

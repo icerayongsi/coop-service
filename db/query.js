@@ -78,14 +78,3 @@ export const olslip = async (body) => {
         return e
     }
 }
-
-export const update_gctrans = async (body) => {
-    try {
-        const query = `UPDATE gctransaction SET result_transaction = '1' WHERE ref_no = '?'`
-        const bind = [ body.ref_no ]
-        const [ result ] = await mysql_pool.query(query, bind)
-        return result
-    } catch (error) {
-        console.error(`[DB] Error - ${e}`)
-    }
-}

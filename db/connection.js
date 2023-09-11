@@ -48,13 +48,13 @@ export const oracleExecute = async (query, bindVars = {}) => {
         const result = await connection.execute(query, bindVars, { autoCommit: true, outFormat: oracledb.OBJECT, bindDefs: bindVars })
         return result
     } catch (err) {
-        throw `[${c_time()}][DB] Error connection : ${err}`
+        throw `[${c_time}][DB] Error connection : ${err}`
     } finally {
         if (connection) {
             try {
                 await connection.close()
             } catch (err) {
-                throw `[${c_time()}][DB] Error closing connection : ${err}`
+                throw `[${c_time}][DB] Error closing connection : ${err}`
             }
         }
     }
