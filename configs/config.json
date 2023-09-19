@@ -5,11 +5,10 @@
         "user": "iscoegat",
         "password": "iscoegat",
         "connectString": "127.0.0.1:1521/gcoop",
+        "queueTimeout": 60000,
         "poolMax": 10,
         "poolMin": 1,
-        "poolIncrement": 1,
-        "poolTimeout": 60,
-        "poolPingInterval": 60
+        "poolIncrement": 1
     },
     "mysqlPool": {
         "host": "localhost",
