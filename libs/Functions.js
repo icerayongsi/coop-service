@@ -13,6 +13,12 @@ export const genGUID = () => {
     return uuid()
 }
 
+export const delay = (ms) => {
+    return new Promise(resolve => {
+        setTimeout(resolve,ms)
+    })
+}
+
 export const formatMysqlDate = (date) => {
     return moment(date).format("YYYY-MM-DD HH:mm:ss")
 }

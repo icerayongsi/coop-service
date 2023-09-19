@@ -4,12 +4,17 @@
     "oracle": {
         "user": "iscoegat",
         "password": "iscoegat",
-        "connectString": "127.0.0.1:1521/gcoop"
+        "connectString": "127.0.0.1:1521/gcoop",
+        "poolMax": 10,
+        "poolMin": 1,
+        "poolIncrement": 1,
+        "poolTimeout": 60,
+        "poolPingInterval": 60
     },
     "mysqlPool": {
-        "host" : "localhost",
-        "port" : 3307,
-        "user" : "root",
+        "host": "localhost",
+        "port": 3307,
+        "user": "root",
         "password": "@Egat2020",
         "database": "mobile_egat",
         "waitForConnections": true,

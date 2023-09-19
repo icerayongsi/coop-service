@@ -4,9 +4,10 @@ import { oracleExecute, mysql_pool } from "#db/connection"
  * @param { string } m_id 
  */
 
-export const check_ref_no = async (m_id) => {
+export const check_ref_no = async (m_id,deptacc) => {
     try {
-        const query = `SELECT Machine_Id FROM dpdeptslip WHERE Machine_Id = '${m_id}' AND DEPTITEMTYPE_CODE NOT IN ('FEO','FEE')`
+        //const query = `SELECT Machine_Id FROM dpdeptslip WHERE Machine_Id = '${m_id}' AND DEPTACCOUNT_NO = '${deptacc}' AND DEPTITEMTYPE_CODE NOT IN ('FEO','FEE')`
+        const query = `SELECT Machine_Id FROM dpdeptslip WHERE Machine_Id = '${m_id}' AND DEPTACCOUNT_NO = '${deptacc}'`
         const result = (await oracleExecute(query)).rows
         if (result.length === 0) return false
         return true
@@ -26,7 +27,6 @@ export const insert_log_trans = async (payload) => {
             JSON.stringify(payload.payload),
             payload.description
         ]
-        
         const [result] = await mysql_pool.query(query, bind)
         return result
     } catch (e) {
@@ -76,5 +76,27 @@ export const olslip = async (body) => {
         return result
     } catch (e) {
         return e
+    }
+}
+
+/**
+ * ? gctransaction fucntions
+ * @typedef { object } gctransaction
+ * 
+ */
+
+export const gctransaction = {
+    async update(ref,flag) {
+        try {
+            const query = `UPDATE gctransaction SET result_transaction = ? WHERE ref_no = '?'`
+            const bind = [
+                flag,
+                ref
+            ]
+            const [ result ] = await mysql_pool.query(query, bind)
+            return result
+        } catch (e) {
+            console.error(`[DB][${arguments.callee.name}] Error - ${e}`)
+        }
     }
 }

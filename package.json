@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node --experimental-modules ./index.js",
-    "dev-prisma": "prisma generate --schema=./prisma/coop/schema.prisma && prisma generate --schema=./prisma/gateway/schema.prisma && nodemon ./index.js",
+    "dev-prisma": "prisma generate --schema=./prisma/coop/schema.prisma && prisma generate --schema=./prisma/gateway/schema.prisma",
     "dev": "nodemon --experimental-modules ./index.js"
   },
   "author": "THADTHEP THADSRI",
@@ -22,7 +22,6 @@
     "oracledb": "^6.0.3",
     "prisma": "^5.0.0",
     "redis": "^4.6.7",
-    "sequelize": "^6.32.1",
     "uuidv4": "^6.2.13"
   },
   "imports": {

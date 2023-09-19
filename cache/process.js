@@ -1,5 +1,5 @@
 import { TRANSACTION } from "#cache/redis"
-import { check_ref_no, insert_log_trans, last_statement_no } from "#db/query"
+import { check_ref_no, insert_log_trans, last_statement_no ,gctransaction } from "#db/query"
 import { oracleExecute, oraclePingConnection, POST_DEPT_INSERT_SERV_ONLINE } from "#db/connection"
 import { convertUndefinedToEmptyString, c_time } from "#libs/Functions"
 import config from "#configs/config" assert { type: 'json'}
@@ -50,32 +50,35 @@ export const process_cache = async (cache) => {
                         else bindParams[bindVar].val = res[bindVar]
                     }
                     // ? เช็ค ref_no
-                    const is_ref_no = await check_ref_no(res.AS_MACHINE_ID)
-                    if (is_ref_no) console.log(`[${c_time()}][IN CACHE][ACTION] Error - Duplicate 'ref_no'`)
+                    const is_ref_no = await check_ref_no(res.AS_MACHINE_ID,res.AS_DEPTACCOUNT_NO)
+                    if (is_ref_no) {
+                        console.log(`[${c_time()}][IN CACHE][ACTION] Error - Duplicate 'ref_no'`)
+                        throw "Error - Duplicate 'ref_no'"
+                    }
 
                     await oracleExecute(query, convertUndefinedToEmptyString(bindParams))
                         .then(async (res) => {
-                            console.log(`[${c_time()}][IN CACHE][PROCESS] เรียก Procedure แล้ว - ${data_key} - ${res.outBinds.AS_PROCESS_STATUS}`)
-
+                            
                             if (res.outBinds.AS_PROCESS_STATUS.includes('1:success')) {
-                                const payload = {
-                                    sigma_key: split[5],
-                                    ref_no: split[6],
-                                    f_round: split[1],
-                                    success : '1',
-                                    payload: JSON.parse(await TRANSACTION.GET(data_key)),
-                                    description : res.outBinds.AS_PROCESS_STATUS
-                                }
-                                const result = await insert_log_trans(payload)
-                                console.log(`[DB] Insert to history ${result} - ${data_key}`)
-    
+                                console.log(`[${c_time()}][IN CACHE][PROCESS] 4.1 เรียก Procedure สำเร็จ - ${data_key} - ${res.outBinds.AS_PROCESS_STATUS}`)
+                                // const payload = {
+                                //     sigma_key: split[5],
+                                //     ref_no: split[6],
+                                //     f_round: split[1],
+                                //     success : '1',
+                                //     payload: JSON.parse(await TRANSACTION.GET(data_key)),
+                                //     description : res.outBinds.AS_PROCESS_STATUS
+                                // }
+                                // const result = await insert_log_trans(payload)
+                                //console.log(`[DB] Insert to history ${result} - ${data_key}`)
+                                
                                 await TRANSACTION.DEL(key)
                                 await TRANSACTION.DEL(data_key)
                             }
                         })
                         // ! หากไม่สำเร็จจะทำการนับ Count เพิ่ม
                         .catch(async (e) => {
-                            console.error(`[${c_time()}][IN CACHE][PROCESS] Error to call procudure count ${+split[1] + 1} - Error : ${e} - ${key}`)
+                            console.error(`[${c_time()}][IN CACHE][PROCESS] 4.1 เรียก Procedure ไม่สำเร็จ - ${+split[1] + 1} - Error : ${e} - ${key}`)
                             split[1] = +split[1] + 1
                             const new_key = split.join(':')
                             await TRANSACTION.SETEX(new_key, config.w_transaction_redis_count_exp, '')

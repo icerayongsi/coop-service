@@ -1,6 +1,6 @@
 import oracledb from "oracledb"
 import { createPool } from "mysql2/promise"
-import { c_time } from "#libs/Functions"
+import { c_time, genGUID } from "#libs/Functions"
 import config from "#configs/config" assert { type: 'json'}
 
 const Config = {
@@ -31,6 +31,8 @@ oracledb.getConnection(Config.oracle, (err, connection) => {
 
 export const mysql_pool = createPool({ ...Config.mysqlPool });
 
+//export const oracle_pool = oracledb.createPool({ ...config.oracle })
+
 export const oraclePingConnection = async () => {
     let connection
     try {
@@ -41,24 +43,135 @@ export const oraclePingConnection = async () => {
     }
 }
 
-export const oracleExecute = async (query, bindVars = {}) => {
-    let connection
+const oracle_createPool = async () => {
     try {
-        connection = await oracledb.getConnection(Config.oracle)
-        const result = await connection.execute(query, bindVars, { autoCommit: true, outFormat: oracledb.OBJECT, bindDefs: bindVars })
-        return result
-    } catch (err) {
-        throw `[${c_time}][DB] Error connection : ${err}`
-    } finally {
-        if (connection) {
-            try {
-                await connection.close()
-            } catch (err) {
-                throw `[${c_time}][DB] Error closing connection : ${err}`
-            }
-        }
+        await oracledb.createPool(Config.oracle)
+    } catch (error) {
+        throw e
     }
 }
+
+// export const oracleExecute = async (query, bindVars = {},uuid = null) => {
+//     let result
+//     await oracle_createPool()
+//         .then(async () => {
+//             let connection
+//             try {
+
+//                 console.log(`[oracleExecute] ฟังชั่นถูกเรียกโดย`)
+//                 connection = await oracledb.getConnection()
+//                 if (uuid !== null) connection._impl.nscon.sAtts.connectionId = uuid
+//                 console.log(connection._impl.nscon.sAtts.connectionId)
+//                 result = connection.execute(query, bindVars, { autoCommit: true, outFormat: oracledb.OBJECT, bindDefs: bindVars } , (err,res) => {
+//                     if (connection._impl.nscon.sAtts.connectionId === uuid) result = res
+//                     else result = res
+//                 })
+//             } catch (err) {
+//                 throw `[${c_time()}][DB] Error connection : ${err}`
+//             } finally {
+//                 if (connection) {
+//                     try {
+//                         await connection.close()
+//                     } catch (err) {
+//                         throw `[${c_time()}][DB] Error closing connection : ${err}`
+//                     }
+//                 }
+//             }
+//         })
+//     return result
+// }
+
+const getConnection = () => {
+    return new Promise((resolve, reject) => {
+        oracledb.createPool({ ...config.oracle }, (err, pool) => {
+            if (err) {
+                console.error('[DB] Error creating connection pool :', err)
+                reject(err)
+                return
+            }
+
+            pool.getConnection((err, connection) => {
+                if (err) {
+                    console.error('[DB] Error acquiring connection : ', err)
+                    reject(err)
+                    return
+                }
+
+                resolve(connection)
+            })
+        })
+    })
+}
+
+const executeQuery = (connection, query, bindVars) => {
+    return new Promise((resolve, reject) => {
+        connection.execute(query, bindVars, { autoCommit: true, outFormat: oracledb.OBJECT, bindDefs: bindVars }, (err, res) => {
+            if (err) {
+                reject(err)
+                return
+            }
+
+            resolve(res)
+        })
+    })
+}
+
+export const oracleExecute = async (query, bindVars = {}) => {
+    try {
+        const connection = await getConnection()
+        const result = await executeQuery(connection, query, bindVars)
+        console.log(connection._impl.nscon.sAtts.connectionId)
+        await connection.release()
+
+        return result
+    } catch (error) {
+        throw error
+    }
+}
+
+// const test = (query, bindVars) => {
+//     let result
+//     oracledb.createPool({ ...config.oracle }, (err, pool) => {
+//         if (err) {
+//             console.error('[DB] Error creating connection pool :', err)
+//             return
+//         }
+
+//         pool.getConnection((err, connection) => {
+//             if (err) {
+//                 console.error('[DB] Error acquiring connection : ', err)
+//                 return
+//             }
+//             console.log(connection._impl.nscon.sAtts.connectionId)
+//             result = connection.execute(query, bindVars, { autoCommit: true, outFormat: oracledb.OBJECT, bindDefs: bindVars }, (err, res) => {
+//                 // if (connection._impl.nscon.sAtts.connectionId === uuid) result = res
+//                 // else result = res
+//                 result = res
+//                 if (res) {
+//                     connection.release((err) => {
+//                         if (err) {
+//                             console.error('[DB] Error releasing connection : ', err);
+//                         }
+//                     })
+//                     console.log(result)
+//                     return result
+//                 }
+//             })
+//         })
+//     })
+// }
+
+// export const oracleExecute = async (query, bindVars = {}, uuid = null) => {
+//     return new Promise((resolve, reject) => {
+//         try {
+//             const result = test(query, bindVars)
+//             console.log('test', resolve(result))
+//             resolve(result)
+//         } catch (error) {
+//             reject(error)
+//         }
+//     })
+// }
 
 // Procedure
 
