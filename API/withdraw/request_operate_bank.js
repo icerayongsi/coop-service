@@ -63,7 +63,7 @@ API.post('/payment', async (req, res) => {
                     }
                 } else {
 
-                    await delay(3000)
+                    await delay(2000)
                     
                     console.log(`[${c_time()}][IN PAYMENT][PROCESS] 3.2 เรียก Procedure รอบ 2 - ${req.body.AS_MACHINE_ID} - ${result.outBinds.AS_DEPTACCOUNT_NO} - ${JSON.stringify(result.outBinds.AS_PROCESS_STATUS)}`)
 
@@ -89,13 +89,9 @@ API.post('/payment', async (req, res) => {
                                 res.end()
                             } else {
                                 console.log(`[${c_time()}][IN PAYMENT][PROCESS] 3.2.2 เรียก Procedure รอบ 2 ไม่สำเร็จ - ${req.body.AS_MACHINE_ID} - ${result.outBinds.AS_DEPTACCOUNT_NO} - ${JSON.stringify(result2ND.outBinds.AS_PROCESS_STATUS)}`)
-                                // res.status(200).json({ AS_PROCESS_STATUS: 'pl_err' })
-                                // res.end()
                                 throw 'เรียก Procedure รอบที่ 2 ไม่สำเร็จ'
                             }
                         } catch (e) {
-                            // res.status(200).json({ AS_PROCESS_STATUS: 'pl_err' })
-                            // res.end()
                             throw e
                         }
                     }
